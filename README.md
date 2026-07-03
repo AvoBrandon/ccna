@@ -14,10 +14,10 @@ One CCNA 200-301 lesson per day. 60 days, full exam blueprint, quiz-gated, strea
 
 ## Deploy (same playbook as Santos Lawn Care)
 
-1. New GitHub repo → `ccna-daily` (public)
+1. Repo: `AvoBrandon/ccna`
 2. Upload all 8 files to the repo root
 3. Settings → Pages → Deploy from branch → `main` / root → Save
-4. Wait ~1 min → open `https://<your-username>.github.io/ccna-daily/`
+4. Wait ~1 min → open `https://avobrandon.github.io/ccna/`
 
 ## Install on your iPhone
 
