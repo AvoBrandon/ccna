@@ -209,6 +209,24 @@ code{font-family:var(--mono);font-size:.9em;background:#0d1727;border:1px solid 
   animation:fly 1.3s cubic-bezier(.15,.6,.3,1) forwards}
 @keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}}
 
+/* ---------- v3: step flow, big text, segmented controls ---------- */
+.bigtext{font-size:19px;line-height:1.7;color:#dbe6f5;margin-bottom:14px}
+.bigkeys{margin-left:20px}
+.bigkeys li{font-size:18px;line-height:1.55;color:#dbe6f5;margin-bottom:12px}
+.steph{font-size:27px;line-height:1.22;margin:4px 0 12px;letter-spacing:-.01em}
+.stepsub{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin:-4px 0 12px}
+.steprow{display:flex;gap:10px;margin-top:20px}
+.steprow .btn{margin-top:0}
+.btn.half{width:auto;flex:1}
+.term.big .tline{font-size:14px;padding:4px 12px}
+.seg{display:flex;gap:7px}
+.seg button{flex:1;padding:11px 6px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:13.5px;color:var(--dim)}
+.seg button.on{border-color:var(--cyan);color:var(--cyan);background:#0e2333}
+body.fs1{font-size:17px}
+body.fs1 .bigtext{font-size:21px}body.fs1 .bigkeys li{font-size:20px}body.fs1 .qtext{font-size:23px}body.fs1 .opt{font-size:17px}body.fs1 .explain{font-size:16px}body.fs1 .overlay p{font-size:17px}body.fs1 .panel li{font-size:16px}body.fs1 .meta{font-size:15px}body.fs1 .ltitle{font-size:15.5px}body.fs1 .refr{font-size:14px}body.fs1 .fine{font-size:14px}body.fs1 .tline{font-size:13.5px}
+body.fs2{font-size:18.5px}
+body.fs2 .bigtext{font-size:23px}body.fs2 .bigkeys li{font-size:21.5px}body.fs2 .qtext{font-size:25px}body.fs2 .opt{font-size:18.5px;padding:16px}body.fs2 .explain{font-size:17px}body.fs2 .overlay p{font-size:18.5px}body.fs2 .panel li{font-size:17.5px}body.fs2 .meta{font-size:16px}body.fs2 .ltitle{font-size:17px}body.fs2 .refr{font-size:15px}body.fs2 .fine{font-size:15px}body.fs2 .tline{font-size:14.5px}body.fs2 .hero h1{font-size:30px}body.fs2 .steph{font-size:29px}
+
 /* ---------- v2: search, reference, heatmap ---------- */
 .search{display:block;width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:inherit;font-size:15px;-webkit-appearance:none}
 .search::placeholder{color:var(--dim2)}
@@ -268,6 +286,8 @@ code{font-family:var(--mono);font-size:.9em;background:#0d1727;border:1px solid 
   <div class="ovhead"><button class="ovback">‹ exit</button></div>
   <div class="body"></div>
 </div>
+
+<div class="overlay" id="ov-welcome"><div class="body"></div></div>
 
 <div class="sheet" id="sheet"><div class="body"></div></div>
 <div id="toast" role="status"></div>

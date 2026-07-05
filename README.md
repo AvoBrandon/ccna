@@ -36,7 +36,9 @@ Every day at that time your phone opens straight into the lesson, and the badge 
 
 ## How it works
 
-- **One new lesson/day**, sequential. Pass the 3-question check **3/3** to complete it (options reshuffle on retry).
+- **One new lesson at your pace** (v3): every day, every 2 days, or every 3 days — set it in ⚙︎. Off days become **review days**; one quick session keeps the streak. Pass the 3-question check **3/3** to complete a lesson (options reshuffle on retry).
+- **Step-by-step lessons** (v3): each lesson is a tap-through flow — plain-English intro, one small chunk per screen, key points, console commands, and a real-world "where you'll use this" example.
+- **Text size setting** (v3): Normal / Large / XL in ⚙︎ (Large is the default).
 - **Streak** counts consecutive days; missing a day resets it. After day 60 the app switches to **maintenance mode** — a daily 5-question mixed drill (pass 4/5) keeps the streak alive forever.
 - **Smart Review**: every missed question returns on a 1 → 3 → 7 → 14 → 30 day schedule until you graduate it. **Quick 5** gives extra reps anytime.
 - **Subnet Drill** (v2): infinite procedurally-generated subnetting problems — network/broadcast addresses, host ranges, mask ↔ prefix — with run-streak tracking. The most-tested CCNA skill, unlimited reps.

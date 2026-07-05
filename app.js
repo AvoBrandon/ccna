@@ -21,7 +21,7 @@ let S = load();
 function fresh() {
   return { v: 1, firstDay: dstr(), done: {}, lastDate: null, streak: 0, best: 0,
            srs: [], grad: 0, answered: 0, correct: 0, firstTryPerfects: 0,
-           reviewAnswers: 0, maintLast: null, maintCount: 0, exam: null, badges: {}, notifWanted: false, sn: { a: 0, c: 0, st: 0, best: 0 }, activity: {} };
+           reviewAnswers: 0, maintLast: null, maintCount: 0, exam: null, badges: {}, notifWanted: false, sn: { a: 0, c: 0, st: 0, best: 0 }, activity: {}, pace: 1, font: 1, seen: false };
 }
 function load() {
   let s = fresh();
@@ -30,6 +30,9 @@ function load() {
   if (!s.activity) s.activity = {};
   if (!Object.keys(s.activity).length)
     for (const id in s.done) { const d = s.done[id].date; s.activity[d] = (s.activity[d] || 0) + 3; }
+  if (typeof s.pace !== "number") s.pace = 1;
+  if (typeof s.font !== "number") s.font = 1;
+  if (typeof s.seen !== "boolean") s.seen = Object.keys(s.done).length > 0;
   return s;
 }
 function save() { store.set(KEY, JSON.stringify(S)); }
@@ -42,8 +45,18 @@ function allDone() { return doneCount() >= LESSONS.length; }
 function todaysLesson() { return LESSONS.find(l => !S.done[l.id]) || null; }
 function completedToday() {
   const t = dstr();
-  if (S.maintLast === t) return true;
+  if (S.lastDate === t || S.maintLast === t) return true;
   return Object.values(S.done).some(d => d.date === t);
+}
+function lastLessonDate() {
+  let m = null;
+  for (const id in S.done) { const d = S.done[id].date; if (!m || d > m) m = d; }
+  return m;
+}
+function isLessonDay() {
+  if (allDone()) return false;
+  const last = lastLessonDate();
+  return !last || daysBetween(last, dstr()) >= S.pace;
 }
 function dueReviews() { const t = dstr(); return S.srs.filter(x => x.due <= t); }
 function domainStats() {
@@ -134,22 +147,33 @@ function renderToday() {
 
   if (!allDone()) {
     const L = lesson; const D = DOMAINS[L.d];
-    if (!doneNow) {
-      hero = `
-      <div class="card hero">
-        <div class="eyebrow">day ${pad(L.id)}/60 · ${D.short}</div>
-        <h1>${esc(L.t)}</h1>
-        <div class="meta">~${L.min} min read · 3-question check · pass 3/3</div>
-        <button class="btn primary" onclick="openLesson(${L.id},'daily')">Start today's lesson</button>
-      </div>`;
-    } else {
-      const next = lesson;
+    const ud = addDays(lastLessonDate() || t, S.pace);
+    const dd = Math.max(1, daysBetween(t, ud));
+    const unlockTxt = dd <= 1 ? "unlocks tomorrow" : `unlocks in ${dd} days`;
+    if (doneNow) {
       hero = `
       <div class="card hero done">
         <div class="eyebrow">day complete · streak ${shownStreak()}</div>
         <h1>Nice work.</h1>
-        <div class="meta">Lesson ${pad(next.id)} — “${esc(next.t)}” — unlocks tomorrow. Review is always open.</div>
+        <div class="meta">Lesson ${pad(L.id)} — “${esc(L.t)}” — ${unlockTxt}. Review is always open.</div>
         <button class="btn ghost" onclick="showTab('review')">Go to review</button>
+      </div>`;
+    } else if (isLessonDay()) {
+      hero = `
+      <div class="card hero">
+        <div class="eyebrow">day ${pad(L.id)}/60 · ${D.short}</div>
+        <h1>${esc(L.t)}</h1>
+        <div class="meta">Short read, one step at a time · 3-question check</div>
+        <button class="btn primary" onclick="openLesson(${L.id},'daily')">Start today's lesson</button>
+      </div>`;
+    } else {
+      const due = dueReviews().length;
+      hero = `
+      <div class="card hero">
+        <div class="eyebrow">review day · lesson ${pad(L.id)} ${unlockTxt}</div>
+        <h1>Review day</h1>
+        <div class="meta">Your pace is a new lesson every ${S.pace} days. One quick session keeps the 🔥 streak alive.</div>
+        <button class="btn primary" onclick="${due ? "startReviewSession()" : "startQuick5()"}">${due ? "Review " + due + " card" + (due > 1 ? "s" : "") : "Quick quiz"}</button>
       </div>`;
     }
   } else {
@@ -264,23 +288,49 @@ function renderLibrary() {
   el.innerHTML = html;
 }
 
-/* ---------- lesson view ---------- */
+/* ---------- lesson view: one small step at a time ---------- */
 let ctx = null; // {mode:'daily'|'view', id}
+let lsteps = [], lstep = 0;
+function buildSteps(L) {
+  const s = [];
+  s.push({ h: "In plain English", t: L.eli || L.c[0], intro: true });
+  L.c.forEach((p, i) => s.push({ h: `The details · part ${i + 1} of ${L.c.length}`, t: p }));
+  s.push({ h: "Lock these in", list: L.k });
+  if (L.cmd) s.push({ h: "On the console", cmd: L.cmd });
+  if (L.use) s.push({ h: "Where you'll actually use this", t: L.use });
+  s.push({ h: "Ready check", t: "Three quick questions — get all 3 and " + (ctx && ctx.mode === "daily" ? "today is done." : "you're solid.") });
+  return s;
+}
 function openLesson(id, mode) {
   const L = byId(id); if (!L) return;
   ctx = { mode, id };
-  const D = DOMAINS[L.d];
-  const cmds = L.cmd ? `<div class="term"><div class="tbar">R1# console</div>${L.cmd.map(c => `<div class="tline">${esc(c)}</div>`).join("")}</div>` : "";
-  $("#ov-lesson .body").innerHTML = `
-    <div class="eyebrow">${mode === "view" ? "review" : "day " + pad(L.id) + "/60"} · ${D.short} · ~${L.min} min</div>
-    <h1>${esc(L.t)}</h1>
-    ${L.c.map(p => `<p>${md(p)}</p>`).join("")}
-    <div class="panel"><div class="ptitle">key points</div><ul>${L.k.map(x => `<li>${md(x)}</li>`).join("")}</ul></div>
-    ${cmds}
-    <button class="btn primary" onclick="startQuiz()">${mode === "daily" ? "Start the 3-question check" : "Practice quiz (3 questions)"}</button>
-    <div class="spacer"></div>`;
+  lsteps = buildSteps(L); lstep = 0;
   $("#ov-lesson").classList.add("open");
   document.body.classList.add("locked");
+  renderStep();
+}
+function stepNext() { if (lstep < lsteps.length - 1) { lstep++; renderStep(); } }
+function stepBack() { if (lstep > 0) { lstep--; renderStep(); } }
+function renderStep() {
+  const L = byId(ctx.id), st = lsteps[lstep], D = DOMAINS[L.d];
+  const dots = lsteps.map((_, i) => `<i class="${i < lstep ? "past" : i === lstep ? "cur" : ""}"></i>`).join("");
+  let body;
+  if (st.list) body = `<ul class="bigkeys">${st.list.map(x => `<li>${md(x)}</li>`).join("")}</ul>`;
+  else if (st.cmd) body = `<div class="term big"><div class="tbar">R1# console — type these, in order</div>${st.cmd.map(c => `<div class="tline">${esc(c)}</div>`).join("")}</div>`;
+  else body = `<p class="bigtext">${md(st.t)}</p>`;
+  const last = lstep === lsteps.length - 1;
+  const head = st.intro
+    ? `<h1 class="steph">${esc(L.t)}</h1><div class="stepsub">${st.h}</div>`
+    : `<h1 class="steph">${st.h}</h1>`;
+  $("#ov-lesson .body").innerHTML = `
+    <div class="qtop"><span class="eyebrow">${ctx.mode === "view" ? "review" : "day " + pad(L.id) + "/60"} · ${D.short}</span><span class="qdots">${dots}</span></div>
+    ${head}
+    ${body}
+    <div class="steprow">
+      ${lstep > 0 ? `<button class="btn ghost half" onclick="stepBack()">‹ Back</button>` : ""}
+      <button class="btn primary half" onclick="${last ? "startQuiz()" : "stepNext()"}">${last ? (ctx.mode === "daily" ? "Start the check" : "Practice quiz") : "Next ›"}</button>
+    </div>
+    <div class="spacer"></div>`;
   $("#ov-lesson").scrollTop = 0;
 }
 
@@ -315,8 +365,8 @@ function startReviewSession() {
 function startQuick5() {
   const pool = [];
   for (const L of LESSONS) if (S.done[L.id]) L.q.forEach((q, qi) => pool.push({ lid: L.id, qi }));
-  if (pool.length < 5) { toast("Finish a few lessons first"); return; }
-  const picks = shuffle(pool).slice(0, 5).map(({ lid, qi }) => {
+  if (pool.length < 3) { toast("Finish a lesson first"); return; }
+  const picks = shuffle(pool).slice(0, Math.min(5, pool.length)).map(({ lid, qi }) => {
     const q = byId(lid).q[qi];
     return { lid, qi, q: q.q, e: q.e, opts: shuffle(q.o.map((t, oi) => ({ t, correct: oi === q.a }))) };
   });
@@ -425,14 +475,18 @@ function finishQuiz() {
          <button class="btn ghost" onclick="closeQuizAll()">Exit</button>`);
     }
   } else if (quiz.kind === "review") {
+    let rd = "";
+    if (!allDone() && !isLessonDay() && !completedToday()) { bumpStreak(); bumpAct(); confetti(); rd = ` Review day complete — 🔥 ${shownStreak()}.`; }
     save(); checkBadges();
     const left = dueReviews().length;
-    html = resultCard(`${right}/${total} reviewed`, left ? `${left} card${left>1?"s":""} still due today.` : "Review queue clear. Cards return on their schedule: 1 → 3 → 7 → 14 → 30 days.",
+    html = resultCard(`${right}/${total} reviewed`, (left ? `${left} card${left>1?"s":""} still due today.` : "Review queue clear. Cards return on their schedule: 1 → 3 → 7 → 14 → 30 days.") + rd,
       `${left ? `<button class="btn primary" onclick="startReviewSession()">Keep going</button>` : ""}
        <button class="btn ghost" onclick="closeQuizAll()">Done</button>`);
   } else { /* practice / quick */
+    let rd = "";
+    if (quiz.kind === "quick" && !allDone() && !isLessonDay() && !completedToday()) { bumpStreak(); bumpAct(); confetti(); rd = ` Review day complete — 🔥 ${shownStreak()}.`; }
     save(); checkBadges();
-    html = resultCard(`${right}/${total}`, quiz.missed.length ? "Missed questions were added to your review queue for tomorrow." : "Clean run.",
+    html = resultCard(`${right}/${total}`, (quiz.missed.length ? "Missed questions were added to your review queue for tomorrow." : "Clean run.") + rd,
       `<button class="btn ghost" onclick="closeQuizAll()">Done</button>`);
   }
   $("#ov-quiz .body").innerHTML = html;
@@ -515,6 +569,17 @@ function renderSettings() {
     </div>
 
     <div class="panel">
+      <div class="ptitle">pace · new lesson every…</div>
+      <div class="seg">${[1,2,3].map(n => `<button class="${S.pace === n ? "on" : ""}" onclick="setPace(${n})">${n === 1 ? "Day" : n + " days"}</button>`).join("")}</div>
+      <p class="fine" style="margin-top:8px">Off days become review days — one quick session keeps your streak.</p>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle">text size</div>
+      <div class="seg">${["Normal","Large","XL"].map((x, i) => `<button class="${S.font === i ? "on" : ""}" onclick="setFont(${i})">${x}</button>`).join("")}</div>
+    </div>
+
+    <div class="panel">
       <div class="ptitle">daily reminder</div>
       <p class="fine">Status: <b>${permLabel}</b>${perm !== "granted" ? "" : " · app badge shows when a lesson is waiting"}</p>
       ${perm === "default" ? `<button class="btn mini" onclick="askNotif()">Enable notifications</button>` : ""}
@@ -544,7 +609,7 @@ function renderSettings() {
       <div class="ptitle">danger zone</div>
       <button class="btn mini danger" onclick="resetAll()">Reset all progress</button>
     </div>
-    <p class="fine center">CCNA Daily v2 · 60 lessons + ∞ subnet drill · built for Brandon 🛠</p>
+    <p class="fine center">CCNA Daily v3 · 60 lessons · ∞ subnet drill · your pace · built for Brandon 🛠</p>
     <div class="spacer"></div>`;
 }
 function saveExam() { const v = $("#examdate").value; S.exam = v || null; save(); toast(v ? "Exam date set" : "Exam date cleared"); render(); }
@@ -603,6 +668,50 @@ function confetti() {
     document.body.appendChild(p);
     setTimeout(() => p.remove(), 1600);
   }
+}
+
+/* ================= v3: pace, text size, welcome ================= */
+function applyFont() {
+  document.body.classList.toggle("fs1", S.font === 1);
+  document.body.classList.toggle("fs2", S.font === 2);
+}
+function setFont(i, inWelcome) {
+  S.font = i; save(); applyFont();
+  inWelcome ? renderWelcome() : renderSettings();
+}
+function setPace(n, inWelcome) {
+  S.pace = n; save();
+  if (inWelcome) renderWelcome();
+  else { renderSettings(); toast("New lesson every " + (n === 1 ? "day" : n + " days")); }
+  render();
+}
+function openWelcome() {
+  $("#ov-welcome").classList.add("open");
+  document.body.classList.add("locked");
+  renderWelcome();
+}
+function renderWelcome() {
+  $("#ov-welcome .body").innerHTML = `
+    <div class="eyebrow">welcome · 30-second setup</div>
+    <h1 class="steph">60 short lessons.<br>One at a time.<br>CCNA done.</h1>
+    <p class="bigtext">Every lesson is broken into tiny steps — read one screen, tap Next. Pass a quick 3-question check and the day is done. Miss a question? It comes back later until you own it.</p>
+    <div class="panel">
+      <div class="ptitle">how fast do you want to go?</div>
+      <div class="seg">${[1,2,3].map(n => `<button class="${S.pace === n ? "on" : ""}" onclick="setPace(${n},1)">${n === 1 ? "Every day" : "Every " + n + " days"}</button>`).join("")}</div>
+      <p class="fine" style="margin-top:8px">Off days become easy review days — your 🔥 streak stays safe.</p>
+    </div>
+    <div class="panel">
+      <div class="ptitle">text size</div>
+      <div class="seg">${["Normal","Large","XL"].map((x, i) => `<button class="${S.font === i ? "on" : ""}" onclick="setFont(${i},1)">${x}</button>`).join("")}</div>
+    </div>
+    <button class="btn primary" onclick="closeWelcome()">Start Day 1 ›</button>
+    <div class="spacer"></div>`;
+}
+function closeWelcome() {
+  S.seen = true; save();
+  $("#ov-welcome").classList.remove("open");
+  document.body.classList.remove("locked");
+  render();
 }
 
 /* ================= v2 additions ================= */
@@ -768,4 +877,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
+applyFont();
 render();
+if (!S.seen) openWelcome();
