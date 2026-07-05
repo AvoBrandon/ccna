@@ -10,6 +10,7 @@ One CCNA 200-301 lesson per day. 60 days, full exam blueprint, quiz-gated, strea
 | `app.js` | Engine: streaks, quiz gate, spaced repetition, badges, backup |
 | `lessons.js` | 60 lessons / 180 questions, weighted to the exam blueprint (FUND 15 · ACCESS 11 · IP 13 · SVC 8 · SEC 9 · AUTO 4) |
 | `sw.js` | Service worker — offline cache |
+| `.nojekyll` | Tells GitHub Pages to skip Jekyll (fixes stuck/failed builds) |
 | `manifest.json` + icons | PWA install metadata |
 
 ## Deploy (same playbook as Santos Lawn Care)
@@ -38,7 +39,10 @@ Every day at that time your phone opens straight into the lesson, and the badge 
 - **One new lesson/day**, sequential. Pass the 3-question check **3/3** to complete it (options reshuffle on retry).
 - **Streak** counts consecutive days; missing a day resets it. After day 60 the app switches to **maintenance mode** — a daily 5-question mixed drill (pass 4/5) keeps the streak alive forever.
 - **Smart Review**: every missed question returns on a 1 → 3 → 7 → 14 → 30 day schedule until you graduate it. **Quick 5** gives extra reps anytime.
-- **Stats** tab: streaks, accuracy, 16 badges, domain mastery.
+- **Subnet Drill** (v2): infinite procedurally-generated subnetting problems — network/broadcast addresses, host ranges, mask ↔ prefix — with run-streak tracking. The most-tested CCNA skill, unlimited reps.
+- **REF tab** (v2): quick-reference tables — ports, AD values, subnet cheat table, STP/OSPF timers, FHRP MACs, go-to show commands.
+- **Stats** tab: streaks, accuracy, 18 badges, domain mastery, and a 12-week activity heatmap (v2).
+- **Library search** (v2): filter all 60 lessons instantly.
 - Tap any lit node on the topology map to reread that lesson.
 
 ## Progress & backup

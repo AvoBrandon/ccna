@@ -209,6 +209,22 @@ code{font-family:var(--mono);font-size:.9em;background:#0d1727;border:1px solid 
   animation:fly 1.3s cubic-bezier(.15,.6,.3,1) forwards}
 @keyframes fly{to{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}}
 
+/* ---------- v2: search, reference, heatmap ---------- */
+.search{display:block;width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:inherit;font-size:15px;-webkit-appearance:none}
+.search::placeholder{color:var(--dim2)}
+.refrow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid #1a273a}
+.refrow:last-child{border-bottom:none}
+.refl{font-family:var(--mono);font-size:12.5px;color:var(--cyan);flex:none}
+.refr{font-size:13px;color:var(--dim);text-align:right}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);grid-auto-columns:11px;gap:3px;justify-content:start;margin-top:10px}
+.heat i{width:11px;height:11px;border-radius:2.5px;background:#1a273a}
+.heat i.h1{background:#14536e}
+.heat i.h2{background:#1e86ad}
+.heat i.h3{background:var(--cyan)}
+.heatkey{display:flex;align-items:center;gap:4px;margin-top:9px;font-family:var(--mono);font-size:10px;color:var(--dim2)}
+.heatkey i{width:9px;height:9px;border-radius:2px;background:#1a273a;display:inline-block}
+.heatkey i.h1{background:#14536e}.heatkey i.h2{background:#1e86ad}.heatkey i.h3{background:var(--cyan)}
+
 @media (prefers-reduced-motion: reduce){
   *{animation:none!important;transition:none!important}
 }
@@ -231,6 +247,7 @@ code{font-family:var(--mono);font-size:.9em;background:#0d1727;border:1px solid 
   <div class="page on" id="page-today"></div>
   <div class="page" id="page-library"></div>
   <div class="page" id="page-review"></div>
+  <div class="page" id="page-ref"></div>
   <div class="page" id="page-stats"></div>
 </main>
 
@@ -238,6 +255,7 @@ code{font-family:var(--mono);font-size:.9em;background:#0d1727;border:1px solid 
   <button data-tab="today" class="on">TODAY</button>
   <button data-tab="library">LIBRARY</button>
   <button data-tab="review">REVIEW</button>
+  <button data-tab="ref">REF</button>
   <button data-tab="stats">STATS</button>
 </nav>
 

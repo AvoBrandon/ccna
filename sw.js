@@ -1,5 +1,5 @@
 /* CCNA Daily service worker — offline shell + notification click handling */
-const CACHE = "ccna-daily-v1";
+const CACHE = "ccna-daily-v2";
 const SHELL = ["./", "./index.html", "./app.js", "./lessons.js", "./manifest.json",
                "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 

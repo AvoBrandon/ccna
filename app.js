@@ -21,13 +21,19 @@ let S = load();
 function fresh() {
   return { v: 1, firstDay: dstr(), done: {}, lastDate: null, streak: 0, best: 0,
            srs: [], grad: 0, answered: 0, correct: 0, firstTryPerfects: 0,
-           reviewAnswers: 0, maintLast: null, maintCount: 0, exam: null, badges: {}, notifWanted: false };
+           reviewAnswers: 0, maintLast: null, maintCount: 0, exam: null, badges: {}, notifWanted: false, sn: { a: 0, c: 0, st: 0, best: 0 }, activity: {} };
 }
 function load() {
-  try { const raw = store.get(KEY); if (raw) return Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
-  return fresh();
+  let s = fresh();
+  try { const raw = store.get(KEY); if (raw) s = Object.assign(fresh(), JSON.parse(raw)); } catch (e) {}
+  if (!s.sn) s.sn = { a: 0, c: 0, st: 0, best: 0 };
+  if (!s.activity) s.activity = {};
+  if (!Object.keys(s.activity).length)
+    for (const id in s.done) { const d = s.done[id].date; s.activity[d] = (s.activity[d] || 0) + 3; }
+  return s;
 }
 function save() { store.set(KEY, JSON.stringify(S)); }
+function bumpAct(n = 1) { const t = dstr(); S.activity[t] = (S.activity[t] || 0) + n; }
 
 /* ---------- derived ---------- */
 const byId = id => LESSONS.find(l => l.id === id);
@@ -76,7 +82,9 @@ const BADGES = [
   { id: "sharp",   icon: "◎", name: "First-Try 10",   desc: "10 quizzes perfect on try 1", test: () => S.firstTryPerfects >= 10 },
   { id: "rev25",   icon: "↻", name: "Reviewer",       desc: "Answer 25 review questions", test: () => S.reviewAnswers >= 25 },
   { id: "grad10",  icon: "✓", name: "Long-Term",      desc: "Graduate 10 review cards", test: () => S.grad >= 10 },
-  { id: "maint7",  icon: "∞", name: "Maintainer",     desc: "7 maintenance drills after day 60", test: () => S.maintCount >= 7 }
+  { id: "maint7",  icon: "∞", name: "Maintainer",     desc: "7 maintenance drills after day 60", test: () => S.maintCount >= 7 },
+  { id: "sn25",    icon: "◱", name: "Subnet Slayer",  desc: "25 correct subnet answers", test: () => S.sn.c >= 25 },
+  { id: "snrun10", icon: "⌁", name: "Block Party",    desc: "10 subnet answers in a row", test: () => S.sn.best >= 10 }
 ];
 function domDone(d) { const s = domainStats()[d]; return s.done >= s.total; }
 function checkBadges() {
@@ -115,7 +123,7 @@ function closeOverlays() {
 function render() {
   $("#streakpill").innerHTML = "🔥 <b>" + shownStreak() + "</b>";
   $("#streakpill").classList.toggle("dim", shownStreak() === 0);
-  renderToday(); renderLibrary(); renderReview(); renderStats();
+  renderToday(); renderLibrary(); renderReview(); renderStats(); renderRef();
   updateAppBadge();
 }
 
@@ -237,10 +245,10 @@ function ifaceTable() {
 /* ---------- library ---------- */
 function renderLibrary() {
   const el = $("#page-library");
-  let html = `<div class="card"><div class="eyebrow">curriculum · tap any completed lesson to reread & practice</div></div>`;
+  let html = `<div class="card"><div class="eyebrow">curriculum · tap any completed lesson to reread & practice</div><input class="search" type="search" placeholder="Search 60 lessons…" oninput="libFilter(this.value)" style="margin-top:10px"></div>`;
   for (const k in DOMAINS) {
     const D = DOMAINS[k];
-    html += `<div class="dhead"><span class="if">${D.iface}</span> ${D.name}</div><div class="card list">`;
+    html += `<div class="dgroup"><div class="dhead"><span class="if">${D.iface}</span> ${D.name}</div><div class="card list">`;
     for (const L of LESSONS.filter(l => l.d === k)) {
       const done = S.done[L.id];
       const isToday = !completedToday() && todaysLesson() && todaysLesson().id === L.id;
@@ -249,9 +257,9 @@ function renderLibrary() {
                   : isToday ? `<span class="lstate now">today ▸</span>`
                   : `<span class="lstate lk">day ${pad(L.id)}</span>`;
       const tap = done ? `onclick="openLesson(${L.id},'view')"` : (isToday ? `onclick="openLesson(${L.id},'daily')"` : "");
-      html += `<div class="lrow ${state}" ${tap}><span class="lnum">${pad(L.id)}</span><span class="ltitle">${esc(L.t)}</span>${right}</div>`;
+      html += `<div class="lrow ${state}" data-t="${(pad(L.id) + " " + L.t + " " + D.short).toLowerCase()}" ${tap}><span class="lnum">${pad(L.id)}</span><span class="ltitle">${esc(L.t)}</span>${right}</div>`;
     }
-    html += `</div>`;
+    html += `</div></div>`;
   }
   el.innerHTML = html;
 }
@@ -352,7 +360,7 @@ function answer(i) {
   const it = quiz.items[quiz.i];
   if (it.answered) return; it.answered = true;
   const ok = it.opts[i].correct;
-  S.answered++; if (ok) { S.correct++; quiz.right++; } else quiz.missed.push(it);
+  S.answered++; bumpAct(); if (ok) { S.correct++; quiz.right++; } else quiz.missed.push(it);
   document.querySelectorAll(".opt").forEach((b, bi) => {
     b.disabled = true;
     if (it.opts[bi].correct) b.classList.add("right");
@@ -395,11 +403,10 @@ function finishQuiz() {
   if (quiz.kind === "daily") {
     passed = right === total;
     if (passed) {
-      const first = !S.done[quiz.lid];
       S.done[quiz.lid] = { date: dstr(), tries: quiz.attempt };
       if (quiz.attempt === 1) S.firstTryPerfects++;
-      bumpStreak(); save(); confetti(); checkBadges();
-      html = resultCard("✓ 3/3 — lesson complete", `Day ${pad(quiz.lid)} is in the books. Streak: 🔥 ${shownStreak()}${first ? "" : ""}.`,
+      bumpStreak(); bumpAct(3); save(); confetti(); checkBadges();
+      html = resultCard("✓ 3/3 — lesson complete", `Day ${pad(quiz.lid)} is in the books. Streak: 🔥 ${shownStreak()}.`,
         `<button class="btn primary" onclick="closeQuizAll()">Done for today</button>`);
     } else {
       quiz.missed.forEach(it => queueSRS(it.lid, it.qi)); save();
@@ -409,7 +416,7 @@ function finishQuiz() {
     }
   } else if (quiz.kind === "maint") {
     passed = right >= 4;
-    if (passed) { S.maintLast = dstr(); S.maintCount++; bumpStreak(); save(); confetti(); checkBadges();
+    if (passed) { S.maintLast = dstr(); S.maintCount++; bumpStreak(); bumpAct(2); save(); confetti(); checkBadges();
       html = resultCard(`✓ ${right}/5 — drill passed`, `Streak holds at 🔥 ${shownStreak()}. Same time tomorrow.`,
         `<button class="btn primary" onclick="closeQuizAll()">Done</button>`);
     } else { save();
@@ -452,6 +459,11 @@ function renderReview() {
       <div class="eyebrow">extra reps</div>
       <p class="meta" style="margin:6px 0 10px">Five random questions from lessons you've completed. Doesn't affect your daily lesson.</p>
       <button class="btn ghost" onclick="startQuick5()">Quick 5</button>
+    </div>
+    <div class="card">
+      <div class="eyebrow">subnetting drill · ∞ generated</div>
+      <p class="meta" style="margin:6px 0 10px">Endless generated problems — network, broadcast, host ranges, masks. All-time best run: <b>${S.sn.best}</b>.</p>
+      <button class="btn ghost" onclick="startSN()">Start drill</button>
     </div>`;
   if (upcoming.length) {
     html += `<div class="card list"><div class="eyebrow" style="padding:2px 2px 8px">scheduled</div>` +
@@ -478,7 +490,10 @@ function renderStats() {
       <div class="stat"><span class="sv">${acc === null ? "—" : acc + "%"}</span><span class="sl">quiz accuracy</span></div>
       <div class="stat"><span class="sv">${S.grad}</span><span class="sl">cards graduated</span></div>
       <div class="stat"><span class="sv">${niceDate(S.firstDay)}</span><span class="sl">day one</span></div>
+      <div class="stat"><span class="sv">${S.sn.c}</span><span class="sl">subnets solved</span></div>
+      <div class="stat"><span class="sv">⌁ ${S.sn.best}</span><span class="sl">best subnet run</span></div>
     </div>
+    <div class="card"><div class="eyebrow">last 12 weeks</div>${heatHTML()}<div class="heatkey">less <i></i><i class="h1"></i><i class="h2"></i><i class="h3"></i> more</div></div>
     <div class="card"><div class="eyebrow">badges · ${Object.keys(S.badges).length}/${BADGES.length}</div><div class="badges">${badgeGrid}</div></div>`;
 }
 
@@ -529,7 +544,7 @@ function renderSettings() {
       <div class="ptitle">danger zone</div>
       <button class="btn mini danger" onclick="resetAll()">Reset all progress</button>
     </div>
-    <p class="fine center">CCNA Daily · 60 lessons · built for Brandon 🛠</p>
+    <p class="fine center">CCNA Daily v2 · 60 lessons + ∞ subnet drill · built for Brandon 🛠</p>
     <div class="spacer"></div>`;
 }
 function saveExam() { const v = $("#examdate").value; S.exam = v || null; save(); toast(v ? "Exam date set" : "Exam date cleared"); render(); }
@@ -590,12 +605,167 @@ function confetti() {
   }
 }
 
+/* ================= v2 additions ================= */
+
+/* ---------- library search ---------- */
+function libFilter(v) {
+  v = v.trim().toLowerCase();
+  document.querySelectorAll("#page-library .lrow").forEach(r => {
+    r.style.display = (!v || (r.dataset.t || "").includes(v)) ? "" : "none";
+  });
+  document.querySelectorAll("#page-library .dgroup").forEach(g => {
+    const any = [...g.querySelectorAll(".lrow")].some(r => r.style.display !== "none");
+    g.style.display = any ? "" : "none";
+  });
+}
+
+/* ---------- REF: quick-reference tables ---------- */
+const REF = [
+  { t: "well-known ports", rows: [["FTP","20/21 · TCP"],["TACACS+","49 · TCP"],["SSH","22 · TCP"],["Telnet","23 · TCP"],["SMTP","25 · TCP"],["DNS","53 · UDP+TCP"],["DHCP","67/68 · UDP"],["TFTP","69 · UDP"],["HTTP","80 · TCP"],["POP3","110 · TCP"],["NTP","123 · UDP"],["IMAP","143 · TCP"],["SNMP","161/162 · UDP"],["HTTPS","443 · TCP"],["Syslog","514 · UDP"],["RADIUS","1812/1813 · UDP"]] },
+  { t: "administrative distance", rows: [["Connected","0"],["Static","1"],["eBGP","20"],["EIGRP","90"],["OSPF","110"],["IS-IS","115"],["RIP","120"],["iBGP","200"],["Unreachable","255"]] },
+  { t: "subnet cheat table", rows: [["/24","255.255.255.0 · block 256 · 254 hosts"],["/25","255.255.255.128 · block 128 · 126"],["/26","255.255.255.192 · block 64 · 62"],["/27","255.255.255.224 · block 32 · 30"],["/28","255.255.255.240 · block 16 · 14"],["/29","255.255.255.248 · block 8 · 6"],["/30","255.255.255.252 · block 4 · 2"],["/16","255.255.0.0 · 65,534 hosts"],["/8","255.0.0.0 · 16.7M hosts"],["wildcard","255.255.255.255 − mask"]] },
+  { t: "special ranges", rows: [["10.0.0.0/8","private · class A"],["172.16.0.0/12","private · class B"],["192.168.0.0/16","private · class C"],["169.254.0.0/16","APIPA / link-local"],["127.0.0.0/8","loopback"],["224.0.0.0/4","multicast"],["fe80::/10","IPv6 link-local"],["2000::/3","IPv6 global unicast"],["ff02::5 / ::6","OSPFv3 routers / DR"],["::1","IPv6 loopback"]] },
+  { t: "stp / rstp", rows: [["timers","hello 2s · fwd-delay 15s · max-age 20s"],["cost","100M = 19 · 1G = 4 · 10G = 2"],["roles","root · designated · alternate · backup"],["RSTP states","discarding · learning · forwarding"],["root election","lowest bridge ID (priority + MAC)"],["edge ports","PortFast + BPDU Guard"]] },
+  { t: "ospf", rows: [["neighbor states","down → init → 2-way → exstart → exchange → loading → full"],["timers","hello 10s · dead 40s (broadcast)"],["multicast","224.0.0.5 all-SPF · 224.0.0.6 DR/BDR"],["RID order","manual → highest loopback → highest interface"],["cost","reference-bw ÷ interface bw"],["DR priority","default 1 · 0 = never · no preempt"]] },
+  { t: "fhrp", rows: [["HSRP vMAC","0000.0c07.acXX"],["HSRP timers","hello 3s · hold 10s"],["VRRP vMAC","0000.5e00.01XX"],["defaults","priority 100 · HSRP preempt off"],["GLBP","Cisco · adds load balancing"]] },
+  { t: "go-to show commands", rows: [["show ip int brief","interfaces + IP + status"],["show ip route","RIB · codes · [AD/metric]"],["show vlan brief","VLANs + access ports"],["show interfaces trunk","trunks · native · allowed"],["show mac address-table","L2 forwarding table"],["show cdp neighbors","what's plugged in where"],["show ip ospf neighbor","adjacencies + state"],["show standby brief","HSRP at a glance"],["show port-security interface","violations · sticky MACs"],["show ip nat translations","live NAT table"]] },
+  { t: "misc numbers", rows: [["DSCP EF","46 · voice"],["Ethernet MTU","1500 bytes"],["802.1Q tag","4 bytes · native = untagged"],["VLAN ranges","normal 1–1005 · extended 1006–4094"],["EtherChannel","LACP active/passive · PAgP desirable/auto"],["SNMPv3 authPriv","authentication + encryption"],["Syslog severities","0 emerg → 7 debug"],["SSH keys","RSA 2048 · needs hostname + domain"]] }
+];
+function renderRef() {
+  const el = $("#page-ref");
+  if (el.dataset.built) return;
+  el.innerHTML =
+    `<div class="card"><div class="eyebrow">quick reference · the numbers worth over-learning</div>
+      <p class="meta" style="margin-top:4px">Skim one table a day. Also handy live at the desk.</p></div>` +
+    REF.map(s => `<div class="card"><div class="eyebrow">${s.t}</div>` +
+      s.rows.map(r => `<div class="refrow"><span class="refl">${r[0]}</span><span class="refr">${r[1]}</span></div>`).join("") +
+      `</div>`).join("");
+  el.dataset.built = "1";
+}
+
+/* ---------- stats heatmap (last 12 weeks) ---------- */
+function heatHTML() {
+  const today = dstr();
+  const now = new Date();
+  const start = new Date(now); start.setDate(now.getDate() - now.getDay() - 77); // Sunday, 12 weeks back
+  let cells = "";
+  for (let c = 0; c < 12; c++) for (let r = 0; r < 7; r++) {
+    const d = new Date(start); d.setDate(start.getDate() + c * 7 + r);
+    const ds = dstr(d);
+    if (ds > today) { cells += `<i style="opacity:0"></i>`; continue; }
+    const v = S.activity[ds] || 0;
+    const h = v >= 6 ? 3 : v >= 3 ? 2 : v >= 1 ? 1 : 0;
+    cells += `<i class="h${h}" title="${ds}: ${v}"></i>`;
+  }
+  return `<div class="heat">${cells}</div>`;
+}
+
+/* ---------- subnet drill: procedural, endless ---------- */
+const i2ip = n => [n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255].join(".");
+const maskOf = p => p ? (0xFFFFFFFF << (32 - p)) >>> 0 : 0;
+const ri = n => Math.floor(Math.random() * n);
+
+function randIp() {
+  const r = Math.random(); let o1, o2 = ri(256);
+  if (r < .25) o1 = 10;
+  else if (r < .45) { o1 = 172; o2 = 16 + ri(16); }
+  else if (r < .65) { o1 = 192; o2 = 168; }
+  else { do { o1 = 1 + ri(222); } while (o1 === 127 || o1 === 10 || o1 === 172 || o1 === 192); }
+  return (((o1 << 24) >>> 0) + (o2 << 16) + (ri(256) << 8) + (1 + ri(254))) >>> 0;
+}
+function randPfx() {
+  const heavy = [24, 25, 26, 26, 27, 27, 28, 28, 29, 29, 30];
+  const light = [10, 12, 14, 16, 18, 20, 21, 22, 23];
+  return Math.random() < .8 ? heavy[ri(heavy.length)] : light[ri(light.length)];
+}
+function uniq3(correct, cands, padFn) {
+  const seen = new Set([correct]); const out = [];
+  for (const c of cands) { if (!seen.has(c)) { seen.add(c); out.push(c); } if (out.length === 3) break; }
+  let k = 2;
+  while (out.length < 3 && k < 40) { const c = padFn(k++); if (!seen.has(c)) { seen.add(c); out.push(c); } }
+  return out;
+}
+function genSN() {
+  const types = ["net", "bc", "first", "last", "hosts", "mask", "pfx"];
+  const ty = types[ri(types.length)];
+  let p = randPfx(); if ((ty === "mask" || ty === "pfx") && p < 9) p = 9 + ri(22);
+  const ip = randIp();
+  const m = maskOf(p), net = (ip & m) >>> 0, bc = (net | (~m >>> 0)) >>> 0;
+  const size = 2 ** (32 - p), hosts = size - 2;
+  const cidr = i2ip(ip) + "/" + p;
+  const block = 2 ** (8 - ((p - 1) % 8 + 1));
+  const oct = p > 24 ? 4 : p > 16 ? 3 : p > 8 ? 2 : 1;
+  const ex = `/${p} → mask <b>${i2ip(m)}</b> · block ${block} in octet ${oct}. Network <b>${i2ip(net)}</b> · broadcast <b>${i2ip(bc)}</b> · usable ${i2ip((net + 1) >>> 0)}–${i2ip((bc - 1) >>> 0)}.`;
+  const addrPad = k => i2ip((net + size * k) >>> 0);
+  let q, correct, alts;
+  if (ty === "net") { q = `Network address of <b>${cidr}</b>?`; correct = i2ip(net);
+    alts = uniq3(correct, [i2ip((net + size) >>> 0), i2ip((net - size) >>> 0), i2ip(bc), i2ip(ip)], addrPad); }
+  else if (ty === "bc") { q = `Broadcast address of <b>${cidr}</b>?`; correct = i2ip(bc);
+    alts = uniq3(correct, [i2ip(net), i2ip((bc + size) >>> 0), i2ip((bc - 1) >>> 0), i2ip((bc - size) >>> 0)], addrPad); }
+  else if (ty === "first") { q = `First usable host in the subnet of <b>${cidr}</b>?`; correct = i2ip((net + 1) >>> 0);
+    alts = uniq3(correct, [i2ip(net), i2ip((net + 2) >>> 0), i2ip((bc - 1) >>> 0), i2ip((net + size + 1) >>> 0)], addrPad); }
+  else if (ty === "last") { q = `Last usable host in the subnet of <b>${cidr}</b>?`; correct = i2ip((bc - 1) >>> 0);
+    alts = uniq3(correct, [i2ip(bc), i2ip((bc - 2) >>> 0), i2ip((net + 1) >>> 0), i2ip((bc + size - 1) >>> 0)], addrPad); }
+  else if (ty === "hosts") { q = `Usable host addresses in a <b>/${p}</b>?`; correct = hosts.toLocaleString("en-US");
+    alts = uniq3(correct, [size, size / 2 - 2, size * 2 - 2, size - 1].map(n => n.toLocaleString("en-US")), k => (hosts + 2 * k).toLocaleString("en-US")); }
+  else if (ty === "mask") { q = `Dotted-decimal mask for <b>/${p}</b>?`; correct = i2ip(m);
+    alts = uniq3(correct, [maskOf(p - 1), maskOf(p + 1), maskOf(p + 2), maskOf(p - 2)].map(i2ip), k => i2ip(maskOf(9 + ((p + k) % 22)))); }
+  else { q = `<b>${i2ip(m)}</b> is which prefix length?`; correct = "/" + p;
+    alts = uniq3(correct, ["/" + (p - 1), "/" + (p + 1), "/" + (p + 2), "/" + (p - 2)], k => "/" + (9 + ((p + k) % 22))); }
+  const opts = shuffle([{ t: correct, correct: true }, ...alts.map(t => ({ t, correct: false }))]);
+  return { ty, q, ex, opts, net, bc, p, hosts, m };
+}
+
+let sn = null;
+function startSN() {
+  sn = { n: 0, right: 0 };
+  ctx = { mode: "sn" };
+  $("#ov-quiz").classList.add("open"); document.body.classList.add("locked");
+  nextSN();
+}
+function nextSN() {
+  sn.q = genSN(); sn.n++;
+  $("#ov-quiz .body").innerHTML = `
+    <div class="qtop"><span class="eyebrow">subnet drill · ∞</span>
+      <span class="eyebrow dim2">Q${sn.n} · session ${sn.right}/${sn.n - 1} · run ⌁${S.sn.st} · best ${S.sn.best}</span></div>
+    <h2 class="qtext">${sn.q.q}</h2>
+    <div class="opts">${sn.q.opts.map((o, i) => `<button class="opt" onclick="answerSN(${i})">${o.t}</button>`).join("")}</div>
+    <div class="explain" id="explain"></div>
+    <button class="btn primary hiddenb" id="nextbtn" onclick="nextSN()">Next problem</button>
+    <button class="btn ghost" onclick="closeQuizAll()">End drill</button>`;
+  $("#ov-quiz").scrollTop = 0;
+}
+function answerSN(i) {
+  if (sn.q.answered) return; sn.q.answered = true;
+  const ok = sn.q.opts[i].correct;
+  S.answered++; S.sn.a++; bumpAct();
+  if (ok) { S.correct++; S.sn.c++; sn.right++; S.sn.st++; S.sn.best = Math.max(S.sn.best, S.sn.st); }
+  else S.sn.st = 0;
+  document.querySelectorAll(".opt").forEach((b, bi) => {
+    b.disabled = true;
+    if (sn.q.opts[bi].correct) b.classList.add("right");
+    else if (bi === i) b.classList.add("wrong");
+    else b.classList.add("fade");
+  });
+  $("#explain").innerHTML = (ok ? `<span class="ok">✓ Correct.</span> ` : `<span class="bad">✗ Not quite.</span> `) + sn.q.ex;
+  $("#explain").classList.add("show");
+  $("#nextbtn").classList.remove("hiddenb");
+  save(); checkBadges();
+}
+
 /* ---------- init ---------- */
 document.querySelectorAll(".tabbar button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
 $("#gear").addEventListener("click", openSettings);
 document.querySelectorAll(".ovback").forEach(b => b.addEventListener("click", () => { closeOverlays(); render(); }));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { render(); } });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  const hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadSW || reloaded) return; reloaded = true; location.reload();
+  });
+}
 
 render();
