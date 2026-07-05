@@ -13,9 +13,9 @@ const DOMAINS = {
 const LESSONS = [
 { id: 1, d: "fund", t: "The OSI Model", min: 5,
   c: [
-    "Everything on this exam hangs off the OSI model, so day one is locking it in. Seven layers, bottom to top: **Physical, Data Link, Network, Transport, Session, Presentation, Application**. Mnemonic: Please Do Not Throw Sausage Pizza Away.",
-    "Each layer has a job and a PDU (protocol data unit). L1 moves **bits** over cable or RF. L2 builds **frames** with MAC addresses. L3 routes **packets** with IP addresses. L4 delivers **segments** with port numbers. L5-L7 handle sessions, formatting/encryption, and the app-facing protocols like HTTP.",
-    "When you troubleshoot at the desk you already think this way: cable unplugged is L1, wrong VLAN is L2, bad gateway is L3, blocked port is L4."
+    "Networks are built in **layers** — like a game engine, where graphics, physics, and input are separate systems stacked together. The OSI model names 7 of them, so any two techs can point at the exact same layer. **L1 — Physical** is the bottom: it just moves raw **bits**, as electric pulses in a cable or as RF through the air. **L2 — Data Link** wraps those bits into **frames** and delivers them across the local network using MAC addresses.",
+    "**L3 — Network** moves **packets** between different networks using IP addresses — this is the layer routers live at. **L4 — Transport** gets the data to the right app on the device using port numbers, in chunks called **segments**. Notice each layer's package has its own name — that name is the PDU.",
+    "The top three you can group in your head: **L5 Session** keeps a conversation open, **L6 Presentation** handles formatting and encryption, and **L7 Application** is the protocol your app actually speaks — like HTTP for the web. Bottom-to-top mnemonic: Please Do Not Throw Sausage Pizza Away."
   ],
   k: [
     "L1 bits, L2 frames (MAC), L3 packets (IP), L4 segments (ports)",
@@ -25,8 +25,8 @@ const LESSONS = [
   ],
   q: [
     { q: "A switch makes forwarding decisions based on which OSI layer?", o: ["Layer 1", "Layer 2", "Layer 3", "Layer 4"], a: 1, e: "Switches forward frames using MAC addresses — Layer 2." },
-    { q: "What is the PDU at the Transport layer?", o: ["Frame", "Packet", "Segment", "Bit"], a: 2, e: "L4 = segments. Frame is L2, packet is L3, bits are L1." },
-    { q: "Which layer is responsible for logical addressing and routing?", o: ["Data Link", "Network", "Session", "Physical"], a: 1, e: "Layer 3 (Network) uses IP addresses to route between networks." }
+    { q: "Which layer is responsible for logical addressing and routing?", o: ["Data Link", "Network", "Session", "Physical"], a: 1, e: "Layer 3 (Network) uses IP addresses to route between networks." },
+    { q: "What is the PDU at the Transport layer?", o: ["Frame", "Packet", "Segment", "Bit"], a: 2, e: "L4 = segments. Frame is L2, packet is L3, bits are L1." }
   ]
 },
 { id: 2, d: "fund", t: "TCP/IP Model & Encapsulation", min: 5,
@@ -1126,7 +1126,7 @@ const LESSONS = [
 
 /* v3: plain-English intros + real-world examples, merged into every lesson */
 const EXTRAS = {
-1:{eli:"The OSI model is a 7-layer game engine stack — the graphics layer doesn't care how the netcode works; each layer does its one job and hands off.",use:"User says 'internet's down' — you walk the layers: cable in (L1) → link light (L2) → has an IP (L3) → app loads (L7). That's the whole method."},
+1:{eli:"The OSI model is a 7-layer game engine stack — the graphics layer doesn't care how the netcode works; each layer does its one job and hands off.",use:"You already troubleshoot in layers at the desk: cable unplugged is L1, wrong VLAN is L2, bad gateway is L3, blocked port is L4. This model just names what you're doing."},
 2:{eli:"Sending data is nesting boxes: your message goes in a TCP envelope, inside an IP box, inside an Ethernet crate. The other side unboxes in reverse.",use:"Open Wireshark and you're literally looking at the boxes: frame → packet → segment → data."},
 3:{eli:"TCP is certified mail — tracked, and resent if lost. UDP is a Snap — fast, no receipt, gone if it drops.",use:"Game voice chat never 'retries' a laggy word (UDP); a file download always arrives complete (TCP)."},
 4:{eli:"The IP address gets you to the building; the port number is the apartment door. 443 is the HTTPS apartment.",use:"Any 'app can't reach server' ticket starts with the same question: which port, and is it TCP or UDP?"},

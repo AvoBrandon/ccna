@@ -37,7 +37,7 @@ Every day at that time your phone opens straight into the lesson, and the badge 
 ## How it works
 
 - **One new lesson at your pace** (v3): every day, every 2 days, or every 3 days — set it in ⚙︎. Off days become **review days**; one quick session keeps the streak. Pass the 3-question check **3/3** to complete a lesson (options reshuffle on retry).
-- **Step-by-step lessons** (v3): each lesson is a tap-through flow — plain-English intro, one small chunk per screen, key points, console commands, and a real-world "where you'll use this" example.
+- **Chunk-and-check lessons** (v4): one tiny idea per screen with a 1-question check right after it — miss it and you just try again (with an instant explanation), no restarting. Tap any dotted term for a plain-English definition. Wrong answers auto-queue into Review.
 - **Text size setting** (v3): Normal / Large / XL in ⚙︎ (Large is the default).
 - **Streak** counts consecutive days; missing a day resets it. After day 60 the app switches to **maintenance mode** — a daily 5-question mixed drill (pass 4/5) keeps the streak alive forever.
 - **Smart Review**: every missed question returns on a 1 → 3 → 7 → 14 → 30 day schedule until you graduate it. **Quick 5** gives extra reps anytime.

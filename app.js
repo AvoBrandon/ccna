@@ -109,11 +109,75 @@ function checkBadges() {
 /* ---------- tiny dom helpers ---------- */
 const $ = s => document.querySelector(s);
 function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-function md(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>"); }
-function toast(msg) {
-  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
-  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 2600);
+function md(t) {
+  const glossed = esc(t).split(/(`[^`]+`)/).map(p => p.startsWith("`") ? p : gloss(p)).join("");
+  return glossed.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
 }
+function toast(msg, ms = 2600) {
+  const el = $("#toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), ms);
+}
+
+/* ---------- tap-to-define glossary ---------- */
+const GLOSSARY = {
+  rf:   { p: "RF", cs: 1, l: "RF", d: "radio frequency — a wireless signal through the air instead of down a cable" },
+  pdu:  { p: "PDUs?", cs: 1, l: "PDU", d: "protocol data unit — the name for the chunk of data at each layer" },
+  mac:  { p: "MAC", cs: 1, l: "MAC address", d: "a network card's burned-in hardware ID, like a1:b2:c3:d4:e5:f6" },
+  frame:{ p: "frames?", cs: 0, l: "frame", d: "the Layer 2 package that carries data across the local network" },
+  packet:{ p: "packets?", cs: 0, l: "packet", d: "the Layer 3 package that routers move between networks" },
+  segment:{ p: "segments?", cs: 0, l: "segment", d: "the Layer 4 chunk that TCP or UDP hands down to IP" },
+  octet:{ p: "octets?", cs: 0, l: "octet", d: "one of the four numbers in an IPv4 address (each 0–255)" },
+  subnet:{ p: "subnets?", cs: 0, l: "subnet", d: "one slice of a bigger network — devices inside it can talk directly" },
+  bcast:{ p: "broadcast", cs: 0, l: "broadcast", d: "sent to every device in the subnet at once" },
+  ucast:{ p: "unicast", cs: 0, l: "unicast", d: "one-to-one delivery to a single device" },
+  mcast:{ p: "multicast", cs: 0, l: "multicast", d: "sent to a group that subscribed — not everyone" },
+  gw:   { p: "gateway", cs: 0, l: "gateway", d: "the router a device hands traffic to when the destination is outside its own subnet" },
+  dhcp: { p: "DHCP", cs: 1, l: "DHCP", d: "the service that automatically hands devices an IP address" },
+  dns:  { p: "DNS", cs: 1, l: "DNS", d: "the service that turns names like google.com into IP addresses" },
+  nat:  { p: "NAT", cs: 1, l: "NAT", d: "translating private IPs to a public one at the internet edge" },
+  vlan: { p: "VLANs?", cs: 1, l: "VLAN", d: "a virtual LAN — one switch split into separate, isolated networks" },
+  trunk:{ p: "trunks?", cs: 0, l: "trunk", d: "a switch-to-switch link that carries many VLANs at once, each frame tagged" },
+  svi:  { p: "SVI", cs: 1, l: "SVI", d: "a virtual interface on a switch that acts as a VLAN's gateway" },
+  acl:  { p: "ACLs?", cs: 1, l: "ACL", d: "access control list — a top-down permit/deny filter for traffic" },
+  adj:  { p: "adjacenc(?:y|ies)", cs: 0, l: "adjacency", d: "two routers formally agreeing to exchange routes" },
+  conv: { p: "convergence", cs: 0, l: "convergence", d: "how quickly the network settles down after something changes" },
+  ad:   { p: "AD", cs: 1, l: "AD", d: "administrative distance — a trust score for where a route came from (lower wins)" },
+  metric:{ p: "metric", cs: 0, l: "metric", d: "the tie-breaker cost a routing protocol uses to pick the best path" },
+  hop:  { p: "hops?", cs: 0, l: "hop", d: "one router crossed on the way to a destination" },
+  cli:  { p: "CLI", cs: 1, l: "CLI", d: "command-line interface — configuring the box by typing commands" },
+  ios:  { p: "IOS", cs: 1, l: "IOS", d: "Cisco's operating system on routers and switches (not Apple's)" },
+  ssid: { p: "SSID", cs: 1, l: "SSID", d: "the Wi-Fi network name you see when connecting" },
+  ap:   { p: "APs?", cs: 1, l: "AP", d: "access point — the box that broadcasts the Wi-Fi signal" },
+  wlc:  { p: "WLC", cs: 1, l: "WLC", d: "wireless LAN controller — the brain that manages many APs" },
+  latency:{ p: "latency", cs: 0, l: "latency", d: "delay — how long a packet takes to arrive" },
+  jitter:{ p: "jitter", cs: 0, l: "jitter", d: "variation in delay — the enemy of smooth voice calls" },
+  duplex:{ p: "duplex", cs: 0, l: "duplex", d: "whether a link talks one way at a time (half) or both ways at once (full)" },
+  poe:  { p: "PoE", cs: 1, l: "PoE", d: "Power over Ethernet — the network cable also powers the device" },
+  crc:  { p: "CRC", cs: 1, l: "CRC", d: "a checksum that catches damaged frames" },
+  ttl:  { p: "TTL", cs: 1, l: "TTL", d: "time to live — a counter that stops packets looping forever" },
+  arp:  { p: "ARP", cs: 1, l: "ARP", d: "the protocol that finds which MAC address owns an IP on the local network" },
+  icmp: { p: "ICMP", cs: 1, l: "ICMP", d: "the protocol behind ping and traceroute" },
+  payload:{ p: "payload", cs: 0, l: "payload", d: "the actual data inside all the wrapping" },
+  header:{ p: "headers?", cs: 0, l: "header", d: "the label a layer sticks on the front of the data" },
+  encap:{ p: "encapsulation", cs: 0, l: "encapsulation", d: "wrapping data in layer after layer of headers to send it" },
+  wc:   { p: "wildcard masks?", cs: 0, l: "wildcard mask", d: "an inverted mask — 0-bits must match, 1-bits are don't-care" },
+  lo:   { p: "loopbacks?", cs: 0, l: "loopback", d: "a virtual always-up interface, used for router IDs and testing" },
+  uplink:{ p: "uplinks?", cs: 0, l: "uplink", d: "the port heading toward the core or servers, not toward users" },
+  errd: { p: "err-disabled", cs: 0, l: "err-disabled", d: "a port the switch shut off after a security violation" },
+  prefix:{ p: "prefix", cs: 0, l: "prefix", d: "the /number — how many leading bits identify the network part" },
+  stratum:{ p: "stratum", cs: 0, l: "stratum", d: "NTP distance from the reference clock — lower is closer" },
+  vty:  { p: "vty", cs: 0, l: "vty", d: "the virtual terminal lines — where SSH and Telnet sessions land" }
+};
+const GKEYS = Object.keys(GLOSSARY).sort((a, b) => GLOSSARY[b].p.length - GLOSSARY[a].p.length);
+function gloss(text) {
+  for (const k of GKEYS) {
+    const g = GLOSSARY[k];
+    const re = new RegExp("\\b(" + g.p + ")\\b", g.cs ? "" : "i");
+    if (re.test(text)) text = text.replace(re, '<span class="gl" onclick="def(\'' + k + '\')">$1</span>');
+  }
+  return text;
+}
+function def(k) { const g = GLOSSARY[k]; toast(g.l + " — " + g.d, 4600); }
 
 /* ---------- navigation ---------- */
 let activeTab = "today";
@@ -288,22 +352,40 @@ function renderLibrary() {
   el.innerHTML = html;
 }
 
-/* ---------- lesson view: one small step at a time ---------- */
-let ctx = null; // {mode:'daily'|'view', id}
+/* ---------- lesson flow: tiny chunk -> quick check -> repeat ---------- */
+let ctx = null; // {mode:'daily'|'view', id, miss}
 let lsteps = [], lstep = 0;
+const PRAISE = ["✓ Locked in.", "✓ That's it.", "✓ Clean.", "✓ Exactly right.", "✓ Easy money."];
+
+function splitPara(t) {
+  if (t.length < 190) return [t];
+  const sents = t.match(/[^.!?]+[.!?]+(\s+|$)/g) || [t];
+  const out = []; let cur = "";
+  for (const s of sents) {
+    if ((cur + s).length > 190 && cur) { out.push(cur.trim()); cur = s; }
+    else cur += s;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out.length ? out : [t];
+}
+
 function buildSteps(L) {
-  const s = [];
-  s.push({ h: "In plain English", t: L.eli || L.c[0], intro: true });
-  L.c.forEach((p, i) => s.push({ h: `The details · part ${i + 1} of ${L.c.length}`, t: p }));
+  const s = [{ h: "In plain English", t: L.eli || L.c[0], intro: true }];
+  const n = L.c.length;
+  L.c.forEach((p, i) => {
+    const chunks = splitPara(p);
+    chunks.forEach((c, j) => s.push({ h: `The idea · ${i + 1} of ${n}` + (chunks.length > 1 ? ` (${j + 1}/${chunks.length})` : ""), t: c }));
+    if (L.q[i]) s.push({ check: true, qi: i });
+  });
   s.push({ h: "Lock these in", list: L.k });
   if (L.cmd) s.push({ h: "On the console", cmd: L.cmd });
   if (L.use) s.push({ h: "Where you'll actually use this", t: L.use });
-  s.push({ h: "Ready check", t: "Three quick questions — get all 3 and " + (ctx && ctx.mode === "daily" ? "today is done." : "you're solid.") });
+  s.push({ fin: true });
   return s;
 }
 function openLesson(id, mode) {
   const L = byId(id); if (!L) return;
-  ctx = { mode, id };
+  ctx = { mode, id, miss: false };
   lsteps = buildSteps(L); lstep = 0;
   $("#ov-lesson").classList.add("open");
   document.body.classList.add("locked");
@@ -311,44 +393,91 @@ function openLesson(id, mode) {
 }
 function stepNext() { if (lstep < lsteps.length - 1) { lstep++; renderStep(); } }
 function stepBack() { if (lstep > 0) { lstep--; renderStep(); } }
+
 function renderStep() {
   const L = byId(ctx.id), st = lsteps[lstep], D = DOMAINS[L.d];
-  const dots = lsteps.map((_, i) => `<i class="${i < lstep ? "past" : i === lstep ? "cur" : ""}"></i>`).join("");
-  let body;
-  if (st.list) body = `<ul class="bigkeys">${st.list.map(x => `<li>${md(x)}</li>`).join("")}</ul>`;
-  else if (st.cmd) body = `<div class="term big"><div class="tbar">R1# console — type these, in order</div>${st.cmd.map(c => `<div class="tline">${esc(c)}</div>`).join("")}</div>`;
-  else body = `<p class="bigtext">${md(st.t)}</p>`;
-  const last = lstep === lsteps.length - 1;
-  const head = st.intro
-    ? `<h1 class="steph">${esc(L.t)}</h1><div class="stepsub">${st.h}</div>`
-    : `<h1 class="steph">${st.h}</h1>`;
+  const prog = `<span class="qbar"><i style="width:${Math.round(100 * lstep / (lsteps.length - 1))}%"></i></span>`;
+  let inner;
+  if (st.check) inner = renderCheck(L, st);
+  else if (st.fin) inner = renderFinish(L);
+  else {
+    let body;
+    if (st.list) body = `<ul class="bigkeys">${st.list.map(x => `<li>${md(x)}</li>`).join("")}</ul>`;
+    else if (st.cmd) body = `<div class="term big"><div class="tbar">R1# console — type these, in order</div>${st.cmd.map(c => `<div class="tline">${esc(c)}</div>`).join("")}</div>`;
+    else body = `<p class="bigtext">${md(st.t)}</p>`;
+    const head = st.intro
+      ? `<h1 class="steph">${esc(L.t)}</h1><div class="stepsub">${st.h}</div>`
+      : `<h1 class="steph">${st.h}</h1>`;
+    inner = `${head}${body}
+      <div class="steprow">
+        ${lstep > 0 ? `<button class="btn ghost half" onclick="stepBack()">‹ Back</button>` : ""}
+        <button class="btn primary half" onclick="stepNext()">Next ›</button>
+      </div>`;
+  }
   $("#ov-lesson .body").innerHTML = `
-    <div class="qtop"><span class="eyebrow">${ctx.mode === "view" ? "review" : "day " + pad(L.id) + "/60"} · ${D.short}</span><span class="qdots">${dots}</span></div>
-    ${head}
-    ${body}
-    <div class="steprow">
-      ${lstep > 0 ? `<button class="btn ghost half" onclick="stepBack()">‹ Back</button>` : ""}
-      <button class="btn primary half" onclick="${last ? "startQuiz()" : "stepNext()"}">${last ? (ctx.mode === "daily" ? "Start the check" : "Practice quiz") : "Next ›"}</button>
-    </div>
+    <div class="qtop"><span class="eyebrow">${ctx.mode === "view" ? "review" : "day " + pad(L.id) + "/60"} · ${D.short} · ${lstep + 1}/${lsteps.length}</span>${prog}</div>
+    ${inner}
     <div class="spacer"></div>`;
   $("#ov-lesson").scrollTop = 0;
+}
+
+function renderCheck(L, st) {
+  const Q = L.q[st.qi];
+  if (!st.opts) st.opts = shuffle(Q.o.map((t, oi) => ({ t, correct: oi === Q.a })));
+  const locked = st.done || st.wrong != null;
+  const opts = st.opts.map((o, i) => {
+    let cls = "opt";
+    if (st.done && o.correct) cls += " right";
+    else if (st.wrong === i) cls += " wrong";
+    else if (locked) cls += " fade";
+    return `<button class="${cls}" ${locked ? "disabled" : ""} onclick="lessonAnswer(${i})">${md(o.t)}</button>`;
+  }).join("");
+  let after = "";
+  if (st.done) after = `<div class="explain show"><span class="ok">${st.pr}</span> ${md(Q.e)}</div>
+    <div class="steprow"><button class="btn ghost half" onclick="stepBack()">‹ Back</button><button class="btn primary half" onclick="stepNext()">Next ›</button></div>`;
+  else if (st.wrong != null) after = `<div class="explain show"><span class="bad">✗ Not this one.</span> ${md(Q.e)}</div>
+    <div class="steprow"><button class="btn primary" onclick="retryCheck()">Try again</button></div>`;
+  return `<h1 class="steph">Quick check</h1><h2 class="qtext">${md(Q.q)}</h2><div class="opts">${opts}</div>${after}`;
+}
+function lessonAnswer(i) {
+  const st = lsteps[lstep];
+  if (st.done || st.wrong != null) return;
+  S.answered++; bumpAct();
+  if (st.opts[i].correct) { S.correct++; st.done = true; st.pr = PRAISE[Math.floor(Math.random() * PRAISE.length)]; }
+  else {
+    st.wrong = i;
+    if (!st.missed) { st.missed = true; ctx.miss = true; queueSRS(ctx.id, st.qi); }
+  }
+  save(); renderStep();
+}
+function retryCheck() { const st = lsteps[lstep]; st.wrong = null; st.opts = shuffle(st.opts); renderStep(); }
+
+function renderFinish(L) {
+  if (ctx.mode !== "daily" || S.done[L.id]) return `
+    <div class="finwrap"><div class="finemoji">✓</div>
+    <h1 class="steph">Recap done.</h1>
+    <p class="bigtext">Anything you missed is queued in Review — it'll come back until it's easy.</p>
+    <button class="btn primary" onclick="closeOverlays();render()">Close</button></div>`;
+  return `
+    <div class="finwrap"><div class="finemoji">🎉</div>
+    <h1 class="steph">That's the whole lesson.</h1>
+    <p class="bigtext">${ctx.miss ? "A couple of checks fought back — they'll return in Review until they're automatic." : "Every check, first try. Sharp."}</p>
+    <button class="btn primary" onclick="finishLesson()">Finish day ${pad(L.id)} 🔥</button></div>`;
+}
+function finishLesson() {
+  if (!S.done[ctx.id]) {
+    S.done[ctx.id] = { date: dstr(), tries: ctx.miss ? 2 : 1 };
+    if (!ctx.miss) S.firstTryPerfects++;
+    bumpStreak(); bumpAct(3);
+    save(); confetti(); checkBadges();
+    toast("Day " + pad(ctx.id) + " complete 🔥");
+  }
+  closeOverlays(); render();
 }
 
 /* ---------- quiz engine ---------- */
 let quiz = null;
 function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-
-function buildItems(L) {
-  return L.q.map((q, qi) => ({ lid: L.id, qi, q: q.q, e: q.e,
-    opts: shuffle(q.o.map((t, oi) => ({ t, correct: oi === q.a }))) }));
-}
-
-function startQuiz() {
-  const L = byId(ctx.id);
-  quiz = { kind: ctx.mode === "daily" ? "daily" : "practice", items: buildItems(L), i: 0, right: 0, missed: [], attempt: (quiz && quiz.lid === L.id ? quiz.attempt : 0) + 1, lid: L.id, pass: L.q.length };
-  $("#ov-quiz").classList.add("open");
-  renderQ();
-}
 
 function startReviewSession() {
   const due = dueReviews(); if (!due.length) return;
@@ -450,21 +579,7 @@ function finishQuiz() {
   const total = quiz.items.length, right = quiz.right;
   let html = "", passed = false;
 
-  if (quiz.kind === "daily") {
-    passed = right === total;
-    if (passed) {
-      S.done[quiz.lid] = { date: dstr(), tries: quiz.attempt };
-      if (quiz.attempt === 1) S.firstTryPerfects++;
-      bumpStreak(); bumpAct(3); save(); confetti(); checkBadges();
-      html = resultCard("✓ 3/3 — lesson complete", `Day ${pad(quiz.lid)} is in the books. Streak: 🔥 ${shownStreak()}.`,
-        `<button class="btn primary" onclick="closeQuizAll()">Done for today</button>`);
-    } else {
-      quiz.missed.forEach(it => queueSRS(it.lid, it.qi)); save();
-      html = resultCard(`${right}/${total} — almost`, "You need 3/3 to lock the lesson. Skim it again or jump straight back in — the options reshuffle.",
-        `<button class="btn primary" onclick="startQuiz()">Retry the check</button>
-         <button class="btn ghost" onclick="backToLesson()">Reread the lesson</button>`);
-    }
-  } else if (quiz.kind === "maint") {
+  if (quiz.kind === "maint") {
     passed = right >= 4;
     if (passed) { S.maintLast = dstr(); S.maintCount++; bumpStreak(); bumpAct(2); save(); confetti(); checkBadges();
       html = resultCard(`✓ ${right}/5 — drill passed`, `Streak holds at 🔥 ${shownStreak()}. Same time tomorrow.`,
@@ -496,7 +611,6 @@ function finishQuiz() {
 function resultCard(title, sub, btns) {
   return `<div class="result"><div class="rscore">${title}</div><p>${sub}</p><div class="btncol">${btns}</div></div>`;
 }
-function backToLesson() { $("#ov-quiz").classList.remove("open"); }
 function closeQuizAll() { closeOverlays(); render(); }
 
 /* ---------- review tab ---------- */
@@ -609,7 +723,7 @@ function renderSettings() {
       <div class="ptitle">danger zone</div>
       <button class="btn mini danger" onclick="resetAll()">Reset all progress</button>
     </div>
-    <p class="fine center">CCNA Daily v3 · 60 lessons · ∞ subnet drill · your pace · built for Brandon 🛠</p>
+    <p class="fine center">CCNA Daily v4 · tap-through lessons · ∞ subnet drill · built for Brandon 🛠</p>
     <div class="spacer"></div>`;
 }
 function saveExam() { const v = $("#examdate").value; S.exam = v || null; save(); toast(v ? "Exam date set" : "Exam date cleared"); render(); }
